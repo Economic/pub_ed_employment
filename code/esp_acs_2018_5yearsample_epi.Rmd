@@ -1,0 +1,616 @@
+---
+title: "esp_acs_2018_5yearsample_epi"
+author: "Daniel Perez"
+date: "6/25/2020"
+output: html_document
+---
+
+```{r}
+library(data.table)
+require(bit64)
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(survey)
+```
+
+Person File
+
+```{r}
+system.time({
+  psam_pusa <- fread("ACS/2018 five-year/psam_pusa.csv", stringsAsFactors=FALSE, header=TRUE)
+  psam_pusb <- fread("ACS/2018 five-year/psam_pusb.csv", stringsAsFactors=FALSE, header=TRUE)
+  psam_pusc <- fread("ACS/2018 five-year/psam_pusc.csv", stringsAsFactors=FALSE, header=TRUE)
+  psam_pusd <- fread("ACS/2018 five-year/psam_pusd.csv", stringsAsFactors=FALSE, header=TRUE)
+})
+
+pums <- bind_rows(psam_pusa, psam_pusb, psam_pusc, psam_pusd)
+rm(psam_pusa, psam_pusb, psam_pusc, psam_pusd)
+
+pums = subset(pums, INDP == 7860 | INDP == 7870)
+pums = subset(pums, COW == 3 | COW == 4 | COW == 5) ## Public sector
+pums = subset(pums, ESR == 1 | ESR == 2) ## Employment status cose
+pums = subset(pums, WKHP >= 30) ## Full-time
+
+names(pums) <- tolower(names(pums))
+nrow(pums)
+```
+
+```{r}
+pums.1 <- pums[, c("serialno",
+                         "rac1p",
+                         "hisp",
+                         "fhisp",  
+                         "wkhp",
+                         "indp",
+                         "occp",
+                         "powsp",
+                         "wagp",
+                         "cow",
+                         "esr",
+                         "st")]
+
+pums.2 <- select(pums, contains("pwgtp")) 
+pums <- bind_cols(pums.1, pums.2)
+rm(pums.1, pums.2)
+```
+
+Recode POWSP - foreign/missing recoded by ST
+
+```{r}
+
+pums$powsp_rec <- pums$powsp
+pums$powsp_rec <- with(pums, ifelse(powsp>56, st, powsp_rec))
+pums$powsp_rec <- with(pums, ifelse(is.na(powsp), st, powsp_rec))
+nrow(pums)
+```
+
+```{r}
+pums <- pums %>% filter(occp !=  325)
+pums <- pums %>% filter(occp != 4465)
+pums <- pums %>% filter(occp != 2050)
+pums <- pums %>% filter(occp != 2060)
+pums <- pums %>% filter(occp != 2040)
+pums <- pums %>% filter(occp != 4460)
+```
+
+```{r}
+pums$majoccup <- NA
+
+attach(pums)
+
+pums$majoccup[occp == 4220] <- 1
+pums$majoccup[occp == 4230] <- 1
+pums$majoccup[occp == 8300] <- 1
+
+pums$majoccup[occp == 6700] <- 2
+pums$majoccup[occp == 7040] <- 2
+pums$majoccup[occp == 7100] <- 2
+pums$majoccup[occp == 7240] <- 2
+pums$majoccup[occp == 7300] <- 2
+pums$majoccup[occp == 7320] <- 2
+pums$majoccup[occp == 7330] <- 2
+pums$majoccup[occp == 7340] <- 2
+pums$majoccup[occp == 7350] <- 2
+pums$majoccup[occp == 7510] <- 2
+pums$majoccup[occp == 7540] <- 2
+pums$majoccup[occp == 7630] <- 2
+
+pums$majoccup[occp ==  200] <- 3
+pums$majoccup[occp ==  205] <- 3
+pums$majoccup[occp ==  210] <- 3
+pums$majoccup[occp == 3900] <- 3
+pums$majoccup[occp == 4250] <- 3
+pums$majoccup[occp == 4251] <- 3
+pums$majoccup[occp == 4255] <- 3
+pums$majoccup[occp == 4350] <- 3
+pums$majoccup[occp == 6010] <- 3
+pums$majoccup[occp == 6040] <- 3
+pums$majoccup[occp == 6050] <- 3
+pums$majoccup[occp == 6100] <- 3
+pums$majoccup[occp == 6110] <- 3
+pums$majoccup[occp == 6120] <- 3
+pums$majoccup[occp == 6130] <- 3
+
+pums$majoccup[occp == 6260] <- 4
+pums$majoccup[occp == 6305] <- 4
+pums$majoccup[occp == 6600] <- 4
+pums$majoccup[occp == 6730] <- 4
+pums$majoccup[occp == 6930] <- 4
+pums$majoccup[occp == 6940] <- 4
+pums$majoccup[occp == 7610] <- 4
+pums$majoccup[occp == 7640] <- 4
+pums$majoccup[occp == 8950] <- 4
+pums$majoccup[occp == 9620] <- 4
+pums$majoccup[occp == 9630] <- 4
+pums$majoccup[occp == 9640] <- 4
+pums$majoccup[occp == 9650] <- 4
+pums$majoccup[occp == 9720] <- 4
+
+pums$majoccup[occp == 4200] <- 5
+pums$majoccup[occp == 4210] <- 5
+pums$majoccup[occp == 6005] <- 5
+pums$majoccup[occp == 7000] <- 5
+pums$majoccup[occp == 9000] <- 5
+pums$majoccup[occp == 9005] <- 5
+
+pums$majoccup[occp == 4240] <- 6
+
+pums$majoccup[occp == 2015] <- 7
+pums$majoccup[occp == 3740] <- 7
+pums$majoccup[occp == 3750] <- 7
+pums$majoccup[occp == 3800] <- 7
+pums$majoccup[occp == 3820] <- 7
+pums$majoccup[occp == 3840] <- 7
+pums$majoccup[occp == 3850] <- 7
+pums$majoccup[occp == 3870] <- 7
+pums$majoccup[occp == 3910] <- 7
+pums$majoccup[occp == 3930] <- 7
+pums$majoccup[occp == 3945] <- 7
+
+pums$majoccup[occp == 3710] <- 8
+pums$majoccup[occp == 3720] <- 8
+pums$majoccup[occp == 3725] <- 8 
+pums$majoccup[occp == 3730] <- 8
+
+pums$majoccup[occp == 4000] <- 10
+pums$majoccup[occp == 4020] <- 10
+pums$majoccup[occp == 4030] <- 10
+pums$majoccup[occp == 4160] <- 10
+pums$majoccup[occp == 7800] <- 10
+pums$majoccup[occp == 7810] <- 10
+pums$majoccup[occp == 7840] <- 10
+pums$majoccup[occp == 7850] <- 10
+pums$majoccup[occp == 7855] <- 10 
+
+pums$majoccup[occp == 4720] <- 11
+
+pums$majoccup[occp == 3030] <- 12
+
+pums$majoccup[occp == 4040] <- 13
+pums$majoccup[occp == 4050] <- 13
+pums$majoccup[occp == 4055] <- 13
+pums$majoccup[occp == 4060] <- 13
+pums$majoccup[occp == 4110] <- 13
+pums$majoccup[occp == 4120] <- 13
+pums$majoccup[occp == 4130] <- 13
+pums$majoccup[occp == 4140] <- 13
+pums$majoccup[occp == 4150] <- 13
+
+pums$majoccup[occp == 4010] <- 14
+
+pums$majoccup[occp == 3255 & indp == 7870] <- 16
+pums$majoccup[occp == 3258 & indp == 7870] <- 16
+pums$majoccup[occp == 3256 & indp == 7870] <- 16
+
+pums$majoccup[occp == 3500] <- 17
+            
+pums$majoccup[occp == 3600] <- 18
+pums$majoccup[occp == 3603] <- 18
+
+pums$majoccup[occp == 3410] <- 19
+pums$majoccup[occp == 3420] <- 19
+pums$majoccup[occp == 3421] <- 19
+pums$majoccup[occp == 3422] <- 19
+pums$majoccup[occp == 3423] <- 19
+pums$majoccup[occp == 3424] <- 19
+pums$majoccup[occp == 3610] <- 19
+pums$majoccup[occp == 3620] <- 19
+pums$majoccup[occp == 3630] <- 19
+pums$majoccup[occp == 3645] <- 19
+pums$majoccup[occp == 3647] <- 19
+pums$majoccup[occp == 3648] <- 19
+pums$majoccup[occp == 3649] <- 19
+pums$majoccup[occp == 3655] <- 19
+       
+pums$majoccup[occp == 3300 &  indp == 7860] <- 20
+pums$majoccup[occp == 3310 &  indp == 7860] <- 20
+pums$majoccup[occp == 3320 &  indp == 7860] <- 20
+pums$majoccup[occp == 3321 &  indp == 7860] <- 20
+pums$majoccup[occp == 3322 &  indp == 7860] <- 20
+pums$majoccup[occp == 3323 &  indp == 7860] <- 20
+pums$majoccup[occp == 3324 &  indp == 7860] <- 20
+pums$majoccup[occp == 3400 &  indp == 7860] <- 20
+pums$majoccup[occp == 3401 &  indp == 7860] <- 20
+pums$majoccup[occp == 3430 &  indp == 7860] <- 20
+pums$majoccup[occp == 3510 &  indp == 7860] <- 20
+pums$majoccup[occp == 3515 &  indp == 7860] <- 20
+pums$majoccup[occp == 3520]                 <- 20 
+pums$majoccup[occp == 3535 &  indp == 7860] <- 20
+pums$majoccup[occp == 3540 &  indp == 7860] <- 20
+pums$majoccup[occp == 3545 &  indp == 7860] <- 20
+pums$majoccup[occp == 3550 &  indp == 7860] <- 20
+pums$majoccup[occp == 3640]                 <- 20 
+pums$majoccup[occp == 3646 &  indp == 7860] <- 20
+pums$majoccup[occp == 8760]                 <- 20
+
+pums$majoccup[occp == 2016] <- 21
+pums$majoccup[occp == 2025] <- 21
+            
+pums$majoccup[occp == 2540] <- 24
+pums$majoccup[occp == 2540] <- 24
+            
+pums$majoccup[occp == 2440] <- 25
+pums$majoccup[occp == 5320] <- 25
+            
+pums$majoccup[occp == 4600] <- 26
+            
+pums$majoccup[occp == 3602] <- 27
+pums$majoccup[occp == 3946] <- 27
+pums$majoccup[occp == 3960] <- 27
+pums$majoccup[occp == 3955] <- 27
+pums$majoccup[occp == 4400] <- 27
+pums$majoccup[occp == 4420] <- 27
+pums$majoccup[occp == 4430] <- 27
+pums$majoccup[occp == 4435] <- 27
+pums$majoccup[occp == 4530] <- 27
+pums$majoccup[occp == 4540] <- 27
+pums$majoccup[occp == 4610] <- 27
+pums$majoccup[occp == 4620] <- 27
+pums$majoccup[occp == 4621] <- 27
+pums$majoccup[occp == 4622] <- 27
+pums$majoccup[occp == 4640] <- 27
+pums$majoccup[occp == 4650] <- 27
+pums$majoccup[occp == 4655] <- 27
+pums$majoccup[occp == 9415] <- 27
+
+pums$majoccup[occp == 3940] <- 28
+            
+pums$majoccup[occp == 4300] <- 29
+pums$majoccup[occp == 4320] <- 29
+            
+pums$majoccup[occp == 4340] <- 30
+pums$majoccup[occp == 4500] <- 30
+pums$majoccup[occp == 4510] <- 30
+pums$majoccup[occp == 4520] <- 30
+            
+pums$majoccup[occp == 5700] <- 31
+pums$majoccup[occp == 5710] <- 31
+pums$majoccup[occp == 5720] <- 31
+pums$majoccup[occp == 5730] <- 31
+pums$majoccup[occp == 5740] <- 31
+
+pums$majoccup[occp == 5820] <- 32
+            
+pums$majoccup[occp ==  540] <- 33
+pums$majoccup[occp ==  725] <- 33
+pums$majoccup[occp ==  726] <- 33
+pums$majoccup[occp ==  735] <- 33
+pums$majoccup[occp ==  740] <- 33
+pums$majoccup[occp ==  750] <- 33
+pums$majoccup[occp == 4740] <- 33
+pums$majoccup[occp == 4750] <- 33
+pums$majoccup[occp == 4760] <- 33
+pums$majoccup[occp == 4800] <- 33
+pums$majoccup[occp == 4810] <- 33
+pums$majoccup[occp == 4820] <- 33
+pums$majoccup[occp == 4830] <- 33
+pums$majoccup[occp == 4840] <- 33
+pums$majoccup[occp == 4850] <- 33
+pums$majoccup[occp == 4900] <- 33
+pums$majoccup[occp == 4920] <- 33
+pums$majoccup[occp == 4930] <- 33
+pums$majoccup[occp == 4940] <- 33
+pums$majoccup[occp == 4950] <- 33
+pums$majoccup[occp == 4965] <- 33
+pums$majoccup[occp == 5150] <- 33
+pums$majoccup[occp == 5160] <- 33
+pums$majoccup[occp == 5165] <- 33
+pums$majoccup[occp == 5210] <- 33
+pums$majoccup[occp == 5220] <- 33
+pums$majoccup[occp == 5230] <- 33
+pums$majoccup[occp == 5240] <- 33
+pums$majoccup[occp == 5250] <- 33
+pums$majoccup[occp == 5260] <- 33
+pums$majoccup[occp == 5300] <- 33
+pums$majoccup[occp == 5310] <- 33
+pums$majoccup[occp == 5330] <- 33
+pums$majoccup[occp == 5350] <- 33
+pums$majoccup[occp == 5360] <- 33
+pums$majoccup[occp == 5410] <- 33
+pums$majoccup[occp == 5500] <- 33
+pums$majoccup[occp == 5510] <- 33
+pums$majoccup[occp == 5520] <- 33
+pums$majoccup[occp == 5521] <- 33
+pums$majoccup[occp == 5522] <- 33
+pums$majoccup[occp == 5530] <- 33
+pums$majoccup[occp == 5600] <- 33
+pums$majoccup[occp == 5610] <- 33
+pums$majoccup[occp == 5620] <- 33
+pums$majoccup[occp == 5630] <- 33
+pums$majoccup[occp == 5840] <- 33
+pums$majoccup[occp == 5850] <- 33
+pums$majoccup[occp == 5860] <- 33
+pums$majoccup[occp == 5900] <- 33
+pums$majoccup[occp == 5910] <- 33
+pums$majoccup[occp == 5940] <- 33
+pums$majoccup[occp == 9645] <- 33
+
+pums$majoccup[occp == 5100] <- 34
+pums$majoccup[occp == 5110] <- 34
+pums$majoccup[occp == 5120] <- 34
+pums$majoccup[occp == 5140] <- 34
+
+pums$majoccup[occp == 5810] <- 35
+pums$majoccup[occp == 5920] <- 35
+
+pums$majoccup[occp == 5420] <- 36
+
+pums$majoccup[occp == 5010] <- 37
+pums$majoccup[occp == 5020] <- 37
+pums$majoccup[occp == 5030] <- 37
+pums$majoccup[occp == 5040] <- 37
+pums$majoccup[occp == 5400] <- 37
+
+pums$majoccup[occp == 4700] <- 38
+pums$majoccup[occp == 4710] <- 38
+pums$majoccup[occp == 5000] <- 38
+
+pums$majoccup[occp == 1550 & indp == 7860] <- 40
+pums$majoccup[occp == 1551 & indp == 7860] <- 40
+pums$majoccup[occp == 1555 & indp == 7860] <- 40
+pums$majoccup[occp == 1560 & indp == 7860] <- 40
+pums$majoccup[occp == 1900 & indp == 7860] <- 40
+pums$majoccup[occp == 1910 & indp == 7860] <- 40
+pums$majoccup[occp == 1920 & indp == 7860] <- 40
+pums$majoccup[occp == 1930 & indp == 7860] <- 40
+pums$majoccup[occp == 1965 & indp == 7860] <- 40
+pums$majoccup[occp == 1970 & indp == 7860] <- 40
+pums$majoccup[occp == 1980 & indp == 7860] <- 40
+pums$majoccup[occp == 2145]                <- 40
+pums$majoccup[occp == 2160]                <- 40
+pums$majoccup[occp == 2180]                <- 40
+pums$majoccup[occp == 6020]                <- 40
+pums$majoccup[occp == 7010]                <- 40
+pums$majoccup[occp == 7430]                <- 40
+
+pums$majoccup[occp == 5800]                <- 41
+            
+pums$majoccup[occp == 1006] <- 42
+pums$majoccup[occp == 1007] <- 42
+pums$majoccup[occp == 1010] <- 42
+pums$majoccup[occp == 1020] <- 42
+pums$majoccup[occp == 1021] <- 42
+pums$majoccup[occp == 1022] <- 42
+pums$majoccup[occp == 1030] <- 42
+pums$majoccup[occp == 1031] <- 42
+pums$majoccup[occp == 1032] <- 42
+pums$majoccup[occp == 1050] <- 42
+pums$majoccup[occp == 1060] <- 42
+pums$majoccup[occp == 1065] <- 42
+pums$majoccup[occp == 1105] <- 42
+pums$majoccup[occp == 1106] <- 42
+pums$majoccup[occp == 1107] <- 42
+pums$majoccup[occp == 1108] <- 42
+pums$majoccup[occp == 1220] <- 42
+
+pums$majoccup[occp == 2810 & indp == 7860] <- 43
+pums$majoccup[occp == 2825 & indp == 7860] <- 43
+pums$majoccup[occp == 2830 & indp == 7860] <- 43
+pums$majoccup[occp == 2840]                <- 43
+pums$majoccup[occp == 2850]                <- 43
+
+pums$majoccup[occp == 1540 & indp == 7860] <- 44   
+pums$majoccup[occp == 1545 & indp == 7860] <- 44   
+pums$majoccup[occp == 2630]                <- 44
+pums$majoccup[occp == 2631]                <- 44
+pums$majoccup[occp == 2633]                <- 44
+pums$majoccup[occp == 2634]                <- 44
+pums$majoccup[occp == 2635]                <- 44
+pums$majoccup[occp == 2640]                <- 44
+pums$majoccup[occp == 2910]                <- 44
+pums$majoccup[occp == 5830]                <- 44
+
+pums$majoccup[occp == 2800 & indp == 7860] <- 45
+pums$majoccup[occp == 2805 & indp == 7860] <- 45
+pums$majoccup[occp == 2900 & indp == 7860] <- 45
+pums$majoccup[occp == 2905 & indp == 7860] <- 45
+pums$majoccup[occp == 2920 & indp == 7860] <- 45
+pums$majoccup[occp == 2960]                <- 45
+pums$majoccup[occp == 4410]                <- 45
+pums$majoccup[occp == 7020]                <- 45
+pums$majoccup[occp == 7120]                <- 45
+pums$majoccup[occp == 8830]                <- 45
+
+pums$majoccup[occp == 6355] <- 48
+pums$majoccup[occp == 7130] <- 48
+pums$majoccup[occp == 7410] <- 48
+pums$majoccup[occp == 7420] <- 48
+
+pums$majoccup[occp == 6230] <- 49
+pums$majoccup[occp == 8500] <- 49
+pums$majoccup[occp == 8510] <- 49
+pums$majoccup[occp == 8520] <- 49
+pums$majoccup[occp == 8550] <- 49
+
+pums$majoccup[occp == 6360] <- 50
+pums$majoccup[occp == 6410] <- 50
+pums$majoccup[occp == 6420] <- 50
+pums$majoccup[occp == 8810] <- 50
+
+pums$majoccup[occp == 6210] <- 51
+pums$majoccup[occp == 6440] <- 51
+pums$majoccup[occp == 6441] <- 51
+pums$majoccup[occp == 6442] <- 51
+pums$majoccup[occp == 6520] <- 51
+pums$majoccup[occp == 7315] <- 51
+pums$majoccup[occp == 7740] <- 51
+pums$majoccup[occp == 8040] <- 51
+pums$majoccup[occp == 8600] <- 51
+pums$majoccup[occp == 8610] <- 51
+pums$majoccup[occp == 8620] <- 51
+pums$majoccup[occp == 8630] <- 51
+pums$majoccup[occp == 8730] <- 51
+            
+pums$majoccup[occp == 6220] <- 52
+pums$majoccup[occp == 6240] <- 52
+pums$majoccup[occp == 6250] <- 52
+pums$majoccup[occp == 6300] <- 52
+pums$majoccup[occp == 6320] <- 52
+pums$majoccup[occp == 6330] <- 52
+pums$majoccup[occp == 6400] <- 52
+pums$majoccup[occp == 6430] <- 52
+pums$majoccup[occp == 6460] <- 52
+pums$majoccup[occp == 6515] <- 52
+pums$majoccup[occp == 6530] <- 52
+pums$majoccup[occp == 6710] <- 52
+pums$majoccup[occp == 6720] <- 52
+pums$majoccup[occp == 6765] <- 52
+pums$majoccup[occp == 6800] <- 52
+pums$majoccup[occp == 6820] <- 52
+pums$majoccup[occp == 6830] <- 52
+pums$majoccup[occp == 7560] <- 52
+pums$majoccup[occp == 8350] <- 52
+pums$majoccup[occp == 8440] <- 52
+pums$majoccup[occp == 8450] <- 52
+pums$majoccup[occp == 8460] <- 52
+pums$majoccup[occp == 8710] <- 52
+pums$majoccup[occp == 8750] <- 52
+pums$majoccup[occp == 8910] <- 52
+pums$majoccup[occp == 8920] <- 52
+pums$majoccup[occp == 9500] <- 52
+pums$majoccup[occp == 9510] <- 52
+pums$majoccup[occp == 9520] <- 52
+pums$majoccup[occp == 9600] <- 52
+pums$majoccup[occp == 9750] <- 52
+
+pums$majoccup[occp == 7360] <- 53
+pums$majoccup[occp == 7720] <- 53
+pums$majoccup[occp == 7730] <- 53
+pums$majoccup[occp == 7750] <- 53
+pums$majoccup[occp == 7900] <- 53
+pums$majoccup[occp == 7905] <- 53
+pums$majoccup[occp == 7920] <- 53
+pums$majoccup[occp == 7930] <- 53
+pums$majoccup[occp == 7950] <- 53
+pums$majoccup[occp == 7960] <- 53
+pums$majoccup[occp == 8000] <- 53
+pums$majoccup[occp == 8010] <- 53
+pums$majoccup[occp == 8020] <- 53
+pums$majoccup[occp == 8030] <- 53
+pums$majoccup[occp == 8060] <- 53
+pums$majoccup[occp == 8100] <- 53
+pums$majoccup[occp == 8120] <- 53
+pums$majoccup[occp == 8130] <- 53
+pums$majoccup[occp == 8140] <- 53
+pums$majoccup[occp == 8150] <- 53
+pums$majoccup[occp == 8160] <- 53
+pums$majoccup[occp == 8200] <- 53
+pums$majoccup[occp == 8210] <- 53
+pums$majoccup[occp == 8220] <- 53
+pums$majoccup[occp == 8225] <- 53
+pums$majoccup[occp == 8310] <- 53
+pums$majoccup[occp == 8320] <- 53
+pums$majoccup[occp == 8360] <- 53
+pums$majoccup[occp == 8400] <- 53
+pums$majoccup[occp == 8410] <- 53
+pums$majoccup[occp == 8420] <- 53
+pums$majoccup[occp == 8530] <- 53
+pums$majoccup[occp == 8540] <- 53
+pums$majoccup[occp == 8850] <- 53
+pums$majoccup[occp == 8640] <- 53
+pums$majoccup[occp == 8650] <- 53
+pums$majoccup[occp == 8720] <- 53
+pums$majoccup[occp == 8740] <- 53
+pums$majoccup[occp == 8800] <- 53
+pums$majoccup[occp == 8860] <- 53
+pums$majoccup[occp == 8900] <- 53
+pums$majoccup[occp == 8930] <- 53
+pums$majoccup[occp == 8965] <- 53
+pums$majoccup[occp == 8990] <- 53
+pums$majoccup[occp == 9560] <- 53
+
+pums$majoccup[occp == 8230] <- 54
+pums$majoccup[occp == 8250] <- 54
+pums$majoccup[occp == 8255] <- 54
+pums$majoccup[occp == 8256] <- 54
+pums$majoccup[occp == 8260] <- 54
+
+pums$majoccup[occp == 6200] <- 55
+pums$majoccup[occp == 7700] <- 55
+
+pums$majoccup[occp == 6660] <- 56
+
+pums$majoccup[occp == 7030] <- 57
+pums$majoccup[occp == 7140] <- 57
+pums$majoccup[occp == 7150] <- 57
+pums$majoccup[occp == 7160] <- 57
+pums$majoccup[occp == 7200] <- 57
+pums$majoccup[occp == 7210] <- 57
+pums$majoccup[occp == 7220] <- 57
+
+pums$majoccup[occp == 9110] <- 58
+pums$majoccup[occp == 9120] <- 58
+pums$majoccup[occp == 9121] <- 58
+pums$majoccup[occp == 9122] <- 58
+pums$majoccup[occp == 9130] <- 58
+pums$majoccup[occp == 9140] <- 58
+pums$majoccup[occp == 9141] <- 58
+
+pums$majoccup[occp == 7260]                 <- 60
+pums$majoccup[occp == 9030 & indp == 7860]  <- 60
+pums$majoccup[occp == 9040 & indp == 7860]  <- 60
+pums$majoccup[occp == 9150]                 <- 60
+pums$majoccup[occp == 9200]                 <- 60
+pums$majoccup[occp == 9240]                 <- 60
+pums$majoccup[occp == 9260]                 <- 60
+pums$majoccup[occp == 9300]                 <- 60
+pums$majoccup[occp == 9310]                 <- 60
+pums$majoccup[occp == 9330]                 <- 60
+pums$majoccup[occp == 9340]                 <- 60
+pums$majoccup[occp == 9350]                 <- 60
+pums$majoccup[occp == 9360]                 <- 60
+pums$majoccup[occp == 9365]                 <- 60
+pums$majoccup[occp == 9410]                 <- 60
+pums$majoccup[occp == 9420]                 <- 60
+pums$majoccup[occp == 9430]                 <- 60
+pums$majoccup[occp == 9610]                 <- 60
+        
+detach(pums) 
+```
+
+```{r}
+pums$catoccup <- NA
+
+pums$catoccup[pums$majoccup >= 1  & pums$majoccup <= 6 ]  <- 1  #     Custodial
+pums$catoccup[pums$majoccup >= 7  & pums$majoccup <= 9 ]  <- 2  #     Security
+pums$catoccup[pums$majoccup >= 10 & pums$majoccup <= 15]  <- 3  #     Food    
+pums$catoccup[pums$majoccup >= 16 & pums$majoccup <= 23]  <- 4  #     Health/Student
+pums$catoccup[pums$majoccup >= 24 & pums$majoccup <= 30]  <- 5  #     Paraeducator  
+pums$catoccup[pums$majoccup >= 31 & pums$majoccup <= 39]  <- 6  #     Clerical      
+pums$catoccup[pums$majoccup >= 40 & pums$majoccup <= 47]  <- 7  #     Technical     
+pums$catoccup[pums$majoccup >= 48 & pums$majoccup <= 56]  <- 8  #     Trades        
+pums$catoccup[pums$majoccup >= 57 & pums$majoccup <= 60]  <- 9  #     Transportation
+
+```
+
+```{r}
+pums <- pums %>% filter(catoccup>=1)
+table(pums$catoccup)
+nrow(pums)
+```
+
+```{r}
+pums$espk12hed <- 2 # HED ESP
+pums$espk12hed[pums$indp == 7860] <- 1 # K12 ESP
+nrow(pums)
+```
+
+```{r}
+p <-
+  svrepdesign( 
+    weights = ~pwgtp , 
+    repweights = "pwgtp[1-80]+" , 
+    type = "BRR", 
+    data = pums,
+    combined.weights = TRUE
+  )
+
+svytable(~powsp_rec+espk12hed, design = p)
+svytable(~espk12hed, design = p)
+```
+
+
+
+

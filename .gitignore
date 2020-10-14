@@ -1,0 +1,9 @@
+*.gz
+*.dta
+*.csv
+*.xls
+*.txt
+*.xlsx
+*.ipynb
+*.do
+.RData

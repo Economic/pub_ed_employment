@@ -34,7 +34,7 @@ pubst_unemp <- cps %>%
   select(date, pub_state_unemp)
 
 publoc_unemp <- cps %>% 
-  #Keep public state ed employees only
+  #Keep public local ed employees only
   filter(publoc==1) %>% 
   group_by(year, month) %>% 
   summarize(pub_local_unemp = weighted.mean(unemp, w = cmpwgt)) %>% 
